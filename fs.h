@@ -200,9 +200,6 @@ class Directory {
 
   DirectoryIterator iterator(const char* path);
 
-  void print();
-
-  
   bool deleteFile(const char* name);
   bool renameFile(const char* name, const char* newName);
   
@@ -242,9 +239,6 @@ class File {
   int read(char* bytes, int len);
 
   void close();
-  void dump();
-
-  void testfileblockat();
 
   private:
 
@@ -253,8 +247,6 @@ class File {
   int cachedBlockEndPos;
 
   FileBlock* blockAt(int pos, int* blockPos);
-  FileBlock* blockAtDeprecated(int pos, int* blockPos);
-
 
 };
 

@@ -17,15 +17,6 @@ uint64 getCurrentTime() {
   return std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
 }
 
-
-
-uint64 getCurrentTimeMicros() {
-  const auto now = std::chrono::system_clock::now();
-  return std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-}
-
-
-
 Path::Path() {
   strcpy(data, "/");
 }
@@ -128,7 +119,6 @@ PathSeparator::~PathSeparator() {
 
 // #region FileSystem
 
-
 FileSystem::FileSystem() {
   capacity = 0;
   memory = NULL;
@@ -182,10 +172,6 @@ void FileSystem::save(const char* file) {
   out.close();
 }
 
-
-
-
-
 void FileSystem::format() {
 
   printc("Formating memory\n", COLOR_BLUE);
@@ -236,16 +222,6 @@ void FileSystem::format() {
   printc("Formating done\n", COLOR_BLUE);
   
 }
-
-
-
-
-
-
-
-
-
-
 
 bool FileSystem::directoryExist(const char* path) {
 
@@ -299,7 +275,6 @@ bool FileSystem::parentDirectory(char* parentDir, const char* path) {
 
 }
 
-
 DirectoryIterator FileSystem::directoryIterator(const char* path) {
 
   if(strcmp(path, "/") == 0) return openRootDirectory().iterator("/");
@@ -321,7 +296,6 @@ DirectoryIterator FileSystem::directoryIterator(const char* path) {
   return dir.iterator(path);
 
 }
-
 
 bool FileSystem::fileExist(const char* path) {
 
@@ -350,9 +324,6 @@ File FileSystem::openFile(const char* path, FileOpenMode mode) {
   return dir.openFile(ps.name(), mode);
 
 }
-
-
-
 
 bool FileSystem::renameDirectory(const char* path, const char* name) {
 
@@ -409,12 +380,6 @@ bool FileSystem::deleteFile(const char* path) {
   return dir.deleteFile(ps.name());
 
 }
-
-
-
-
-
-
 
 int FileSystem::totalBlocks() {
   return getHeaderBlock()->totalBlocks;
@@ -599,71 +564,6 @@ File Directory::openFile(const char* name, FileOpenMode mode) {
 
   return File(fs, fileInfo, mode);
 
-  /*
-  DirectoryBlock* block = this->block;
-
-  while(block != NULL) {
-
-    for(int i = 0; i < block->fileCount; i++) {
-
-      FileInfo* fileInfo = &block->files[i];
-      if(fileInfo->fileType != 'F') continue;
-
-      if(strcmp(fileInfo->fileName, name) == 0) {
-        return File(fs, fileInfo, mode);
-      }
-
-    }
-
-    block = fs->getDirectoryBlock(block->nextBlock);
-  }
-
-  if(mode == WRITE || mode == APPEND) {
-    
-    DirectoryBlock* block = this->block;
-
-    while(block->nextBlock != -1) {
-      block = fs->getDirectoryBlock(block->nextBlock);
-    }
-
-    if(block->fileCount == block->capacity) {
-
-      int n = fs->allocateBlock();
-      DirectoryBlock* newBlock = fs->getDirectoryBlock(n);
-
-      block->nextBlock = n;
-
-      newBlock->parentDirectory = block->parentDirectory;
-      newBlock->previousBlock = fs->blockIndex(block);
-      newBlock->nextBlock = -1;
-      newBlock->fileCount = 0;
-
-      block = newBlock;
-
-    }
-
-    FileInfo* fileInfo = &block->files[block->fileCount];
-    block->fileCount++;
-
-    strcpy(fileInfo->fileName, name);
-    fileInfo->fileType = 'F';
-    fileInfo->fileSize = 0;
-    fileInfo->dateCreated = getCurrentTime();
-    fileInfo->dateModified = fileInfo->dateCreated;
-
-    fileInfo->firstBlock = -1;
-    fileInfo->lastBlock = -1;
-    
-    return File(fs, fileInfo, mode);
-
-  }
-  // create file because it does not exists
-
-  printfc("Cannot open file %s because it does not exists\n", COLOR_RED, name);
-  return File();
-
-  */
-
 }
 
 bool Directory::directoryExists(const char* name) {
@@ -710,7 +610,6 @@ Directory Directory::openDirectory(const char* name) {
 DirectoryIterator Directory::iterator(const char* path) {
   return DirectoryIterator(fs, block, path);
 }
-
 
 bool Directory::deleteFile(const char* name) {
 
@@ -813,48 +712,6 @@ bool Directory::renameDirectory(const char* name, const char* newName) {
   *fileInfo = temp;
 
   return true;
-
-}
-
-
-
-
-
-
-
-
-
-
-void Directory::print() {
-
-  printf("----------------------------------\n");
-
-  DirectoryBlock* block = this->block;
-
-  while(block != NULL) {
-
-    printf("Directory block %d\n", fs->blockIndex(block));
-    printf("  parent dir: %d\n", block->parentDirectory);
-    printf("  previous block: %d\n", block->previousBlock);
-    printf("  next block: %d\n", block->nextBlock);
-    printf("  file count: %d/%d\n", block->fileCount, block->capacity);
-    
-    for(int i = 0; i < block->fileCount; i++) {
-
-      FileInfo* fileInfo = &block->files[i];
-      if(fileInfo->fileType == 'F') {
-        printf("  FILE %s (%.1f KB)\n", fileInfo->fileName, KB(fileInfo->fileSize));
-      }else if(fileInfo->fileType == 'D') {
-        printf("  DIR %s\n", fileInfo->fileName);
-      }else{
-        printf("  FILE ERROR\n");
-      }
-
-    }
-
-    block = fs->getDirectoryBlock(block->nextBlock);
-
-  }
 
 }
 
@@ -970,64 +827,10 @@ FileInfo* Directory::addFileInfo(const char* name, char type) {
 
   strcpy(fileInfo->fileName, name);
   fileInfo->fileType = type;
-  //fileInfo->fileSize = 0;
-  //fileInfo->dateCreated = getCurrentTime();
-  //fileInfo->dateModified = fileInfo->dateCreated;
-  //fileInfo->firstBlock = -1;
-  //fileInfo->lastBlock = -1;
-
-  // samo je još potrebno sortirati :)
-
-  /*
-  fileInfo = NULL;
-  bool sorted = false;
-
-  while(true) {
-
-    for(int i = block->fileCount - 1; i > 0; i--) {
-
-      FileInfo* a = &block->files[i-1];
-      FileInfo* b = &block->files[i];
-      
-      int compare = compareFileInfo(a, b);
-      if(compare == -1) {
-        sorted = true;
-        fileInfo = b;
-        break;
-      }
-
-      swapFileInfo(a, b);
-      
-    }
-
-    if(sorted) break;
-
-    fileInfo = fileInfo = &block->files[0];
-
-    DirectoryBlock* previousBlock = fs->getDirectoryBlock(block->previousBlock);
-    if(previousBlock == NULL) {
-      sorted = true;
-      break;
-    }
   
-    FileInfo* previous = &previousBlock->files[previousBlock->fileCount - 1];
-    
-    int compare = compareFileInfo(previous, fileInfo);
 
-    if(compare == -1) {
-      sorted = true;
-      break;
-    }
-
-    swapFileInfo(previous, fileInfo);
-    fileInfo = previous;
-
-    block = previousBlock;
-
-  }*/
-  
   FileInfo* previousFileInfo = NULL;
-  // file
+
   int fileInfoIndex = block->fileCount - 1;
   int previousFileInfoIndex;
 
@@ -1095,7 +898,6 @@ void Directory::removeFileInfo(DirectoryBlock* block, int index) {
   }
 
 }
-
 
 // #endregion
 
@@ -1231,38 +1033,6 @@ void File::close() {
 
 }
 
-void File::testfileblockat() {
-  
-  int len = info->fileSize;
-  uint64_t TSTART, TEND;
-
-  TSTART = getCurrentTimeMicros();
-  {
-    int maxAllowed = info->fileSize - pos;
-    if(len > maxAllowed) len = maxAllowed;
-
-    int read = 0;
-    int remain = len;
-
-    while(remain != 0) {
-
-      int blockPos;
-      FileBlock* block = blockAt(pos, &blockPos);
-
-      int toRead = min(FILE_BLOCK_CAPACITY - blockPos, remain);
-
-      pos += toRead;
-      read += toRead;
-      remain -= toRead;
-
-    }
-  }
-  TEND = getCurrentTimeMicros();
-  printf("%u us\n", TEND - TSTART);
-
-
-}
-
 FileBlock* File::blockAt(int pos, int* blockPos) {
 
   FileBlock* block = cachedFileBlock;
@@ -1276,7 +1046,6 @@ FileBlock* File::blockAt(int pos, int* blockPos) {
     if(block == NULL) {
 
       if(mode == READ) {
-        // NE SMIJE SE DOGODITI
         printfc("FATAL ERROR: FILE READ BLOCK AT %d DOES NOT EXIST\n", COLOR_RED, pos);
         exit(1);
       }
@@ -1334,73 +1103,6 @@ FileBlock* File::blockAt(int pos, int* blockPos) {
 
   *blockPos = pos - blockStartPos;
   return block;
-
-}
-
-FileBlock* File::blockAtDeprecated(int pos, int* blockPos) {
-
-  FileBlock* block = fs->getFileBlock(info->firstBlock);
-  FileBlock* last = NULL;
-  
-  int i = FILE_BLOCK_CAPACITY;
-
-  while(true) {
-
-    if(block == NULL) {
-
-      if(mode == READ) {
-        // NE SMIJE SE DOGODITI
-        printfc("FATAL ERROR: FILE READ BLOCK AT %d DOES NOT EXIST\n", COLOR_RED, pos);
-        exit(1);
-      }
-
-      int n = fs->allocateBlock();
-      FileBlock* newBlock = fs->getFileBlock(n);
-
-      if(last == NULL) info->firstBlock = n;
-      else last->nextBlock = n;
-
-      newBlock->previousBlock = fs->blockIndex(last);
-      newBlock->nextBlock = -1;
-
-      info->lastBlock = n;
-      info->fileSize = pos;
-
-      block = newBlock;
-      
-    }
-
-    if(pos < i) break;
-    i += FILE_BLOCK_CAPACITY;
-
-    last = block;
-    block = fs->getFileBlock(block->nextBlock);
-
-  }
-  
-  *blockPos = FILE_BLOCK_CAPACITY - (i - pos);
-  return block;
-  
-
-}
-
-
-void File::dump() {
-
-  FileBlock* fileBlock = fs->getFileBlock(info->firstBlock);
-  int a = 0;
-  while(fileBlock != NULL) {
-    printf("FILEBLOCK %d\n", fs->blockIndex(fileBlock));
-    printf("  next %d\n", fileBlock->nextBlock);
-    printf("  prev %d\n", fileBlock->previousBlock);
-    printf("  data #");
-    for(int i = 0; i < fileBlock->capacity && a < info->fileSize; i++) {
-      printf("%c", fileBlock->fileData[i]);
-      a++;
-    }
-    printf("#\n");
-    fileBlock = fs->getFileBlock(fileBlock->nextBlock);
-  }
 
 }
 
