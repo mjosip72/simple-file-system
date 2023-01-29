@@ -48,7 +48,7 @@ class StringSplitter {
     this->x = x;
 
   }
-  
+
   bool hasNext() {
     return p != NULL;
   }
@@ -83,7 +83,7 @@ class Input {
 
   private:
 
-  static const int inputBufferCapacity = 100;
+  static const int inputBufferCapacity = 256;
   char inputBuffer[inputBufferCapacity];
 
   StringSplitter splitter;
@@ -104,27 +104,27 @@ class Input {
     return splitter.next();
   }
 
-  char* p() {
+  char* all() {
     return splitter.all();
   }
 
 };
 
-char* cap(int size) {
+std::string cap(int size) {
   
-  static char buffer[256];
+  char buffer[256];
 
   if(size < 1024) sprintf(buffer, "%d B", size);
   else if(size < 1024 * 1024) sprintf(buffer, "%.1f KB", KB(size));
   else sprintf(buffer, "%.1f MB", MB(size));
 
-  return buffer;
+  return std::string(buffer);
 
 }
 
-char* date(uint64 date) {
+std::string date(uint64 date) {
 
-  static char buffer[256];
+  char buffer[256];
 
   time_t time_t_data;
 
@@ -132,7 +132,7 @@ char* date(uint64 date) {
   tm* time_tm = localtime(&time_time);
 
   strftime(buffer, 256, "%d-%m-%Y %H:%M:%S", time_tm);
-  return buffer;
+  return std::string(buffer);
 
 }
 
@@ -145,9 +145,9 @@ void listDirectory(FileSystem &fs, const char* path) {
 
     char type = it.type();
     if(type == 'D') {
-      printfc("%-32s | %-4s | %-20s | %-20s | %s\n", COLOR_YELLOW, it.name(), "dir", date(it.dateCreated()), "", "");
+      printfc("%-32s | %-4s | %-20s | %-20s | %s\n", COLOR_YELLOW, it.name(), "dir", date(it.dateCreated()).c_str(), "", "");
     }else{
-      printfc("%-32s | %-4s | %-20s | %-20s | %s\n", COLOR_YELLOW, it.name(), "file", date(it.dateCreated()), date(it.dateModified()), cap(it.fileSize()));
+      printfc("%-32s | %-4s | %-20s | %-20s | %s\n", COLOR_YELLOW, it.name(), "file", date(it.dateCreated()).c_str(), date(it.dateModified()).c_str(), cap(it.fileSize()).c_str());
     }
 
     it.nextItem();
@@ -189,7 +189,7 @@ void openFile(FileSystem &fs, const char* path, const char* name) {
   sprintf(fileName, "__%s", name);
 
   File file = fs.openFile(path, READ);
-  if(!file.isValid()) return;
+  if(!file.isOpen()) return;
 
   int len = file.size();
   char* buffer = new char[len];
@@ -222,7 +222,7 @@ void openFile(FileSystem &fs, const char* path, const char* name) {
   in.close();
 
   file = fs.openFile(path, WRITE);
-  if(!file.isValid()) return;
+  if(!file.isOpen()) return;
 
   file.write(buffer, len);
   file.close();
@@ -252,6 +252,7 @@ int main() {
 
       input.read();
       char* cmd = input.next();
+      if(strlen(cmd) == 0) continue;
 
       if(streq(cmd, "exit")) {
         break;
@@ -261,9 +262,9 @@ int main() {
         int used = fs.usedBlocks();
         int free = fs.freeBlocks();
 
-        printfc("total blocks: %-5d ( %s )\n", COLOR_BLUE, total, cap(total * BLOCK_SIZE));
-        printfc("used  blocks: %-5d  %.1f %c ( %s )\n", COLOR_BLUE, used, (float)used / (float)total * 100.0, '%', cap(used * BLOCK_SIZE));
-        printfc("free  blocks: %-5d  %.1f %c ( %s )\n", COLOR_BLUE, free, (float)free / (float)total * 100.0, '%', cap(free * BLOCK_SIZE));
+        printfc("total blocks: %-5d ( %s )\n", COLOR_BLUE, total, cap(total * BLOCK_SIZE).c_str());
+        printfc("used  blocks: %-5d  %.1f %c ( %s )\n", COLOR_BLUE, used, (float)used / (float)total * 100.0, '%', cap(used * BLOCK_SIZE).c_str());
+        printfc("free  blocks: %-5d  %.1f %c ( %s )\n", COLOR_BLUE, free, (float)free / (float)total * 100.0, '%', cap(free * BLOCK_SIZE).c_str());
         
       } else if(streq(cmd, "mkdir")) {
 
@@ -292,11 +293,11 @@ int main() {
         path.push(name);
 
         File file = fs.openFile(path.string(), WRITE);
-        if(!file.isValid()) continue;
+        if(!file.isOpen()) continue;
 
         if(input.hasNext()) {
 
-          char* p = input.p();
+          char* p = input.all();
 
           printfc("Writing %s\n", COLOR_GREEN, p);
           file.write(p, strlen(p));
@@ -316,11 +317,11 @@ int main() {
         path.push(name);
 
         File file = fs.openFile(path.string(), APPEND);
-        if(!file.isValid()) continue;
+        if(!file.isOpen()) continue;
 
         if(input.hasNext()) {
 
-          char* p = input.p();
+          char* p = input.all();
 
           printfc("Appending %s\n", COLOR_GREEN, p);
           file.write(p, strlen(p));
@@ -340,7 +341,7 @@ int main() {
         path.push(name);
 
         File file = fs.openFile(path.string(), READ);
-        if(!file.isValid()) continue;
+        if(!file.isOpen()) continue;
 
         int size = file.size();
         char* buffer = new char[size + 1];
@@ -373,27 +374,6 @@ int main() {
 
         currentPath = path;
 
-      } else if(streq(cmd, "appb")) {
-
-        char* name = input.next();
-        int bytes = atoi(input.next());
-        char* x = input.next();
-
-        if(bytes < 1) continue;
-
-        Path path = currentPath;
-        path.push(name);
-
-        char* buffer = new char[bytes];
-        memset(buffer, x[0], bytes);
-
-        File file = fs.openFile(path.string(), APPEND);
-        file.write(buffer, bytes);
-        file.close();
-
-        printfc("Appended %s bytes\n", COLOR_BLUE, bytes);
-        delete[] buffer;
-
       } else if(streq(cmd, "upload")) {
 
         char* name = input.next();
@@ -415,7 +395,7 @@ int main() {
         path.push(name);
 
         File file = fs.openFile(path.string(), WRITE);
-        if(!file.isValid()) {
+        if(!file.isOpen()) {
           printfc("Upload failed: cannot write file %s\n", COLOR_RED, path.string());
           delete[] inputBytes;
           continue;
@@ -427,7 +407,7 @@ int main() {
         ///////////////////////////////
 
         file = fs.openFile(path.string(), READ);
-        if(!file.isValid()) {
+        if(!file.isOpen()) {
           printfc("Upload failed: cannot read file %s\n", COLOR_RED, path.string());
           delete[] inputBytes;
           continue;
@@ -468,7 +448,9 @@ int main() {
         Path path = currentPath;
         path.push(name);
 
-        fs.deleteFile(path.string());
+        bool ok = fs.deleteFile(path.string());
+        if(ok) printfc("File %s deleted\n", COLOR_BLUE, name);
+
 
       } else if(streq(cmd, "rmdir")) {
 
@@ -477,7 +459,8 @@ int main() {
         Path path = currentPath;
         path.push(name);
 
-        fs.deleteDirectory(path.string());
+        bool ok = fs.deleteDirectory(path.string());
+        if(ok) printfc("Directory %s deleted\n", COLOR_BLUE, name);
         
       } else if(streq(cmd, "rename")) {
 
@@ -487,7 +470,8 @@ int main() {
         Path path = currentPath;
         path.push(name);
 
-        fs.renameFile(path.string(), newName);
+        bool ok = fs.renameFile(path.string(), newName);
+        if(ok) printfc("File %s renamed to %s\n", COLOR_BLUE, name, newName);
 
       } else if(streq(cmd, "renamedir")) {
 
@@ -497,7 +481,8 @@ int main() {
         Path path = currentPath;
         path.push(name);
 
-        fs.renameDirectory(path.string(), newName);
+        bool ok = fs.renameDirectory(path.string(), newName);
+        if(ok) printfc("Directory %s renamed to %s\n", COLOR_BLUE, name, newName);
 
       } else if(streq(cmd, "pdir")) {
 
@@ -505,10 +490,12 @@ int main() {
         bool ok = fs.parentDirectory(&parent, currentPath.string());
         if(ok) printfc("Parent dir: %s\n", COLOR_BLUE, parent.string());
 
+      } else {
+        printc("Unknown command\n", COLOR_YELLOW);
       }
 
     } catch (int x) {
-      printc("Wrong usage of command\n", COLOR_RED);
+      printc("Wrong usage of command\n", COLOR_YELLOW);
     }
 
   }

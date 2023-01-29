@@ -158,9 +158,7 @@ class FileSystem {
 
   private:
 
-  bool initPathSeparator(const char* path);
-  Directory locateParentDirectory();
-  Directory locateParentDirectoryFromPath(const char* path);
+  Directory locateParentDirectory(const char* path);
 
   Directory openRootDirectory();
 
@@ -190,10 +188,10 @@ class Directory {
 
   bool isValid();
 
-  bool fileExists(const char* name);
+  bool fileExist(const char* name);
   File openFile(const char* name, FileOpenMode mode);
 
-  bool directoryExists(const char* name);
+  bool directoryExist(const char* name);
   bool createDirectory(const char* name);
   Directory openDirectory(const char* name);
 
@@ -220,13 +218,14 @@ class File {
   FileInfo* info;
   FileOpenMode mode;
   int pos;
+  bool _isOpen;
 
   public:
 
   File(FileSystem* fs, FileInfo* info, FileOpenMode mode);
   File();
 
-  bool isValid();
+  bool isOpen();
 
   char* name();
   int size();

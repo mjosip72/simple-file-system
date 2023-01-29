@@ -210,16 +210,16 @@ void FileSystem::format() {
 
 bool FileSystem::directoryExist(const char* path) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
-  return dir.directoryExists(ps.name());
+  return dir.directoryExist(ps.name());
 
 }
 
 bool FileSystem::createDirectory(const char* path) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
   return dir.createDirectory(ps.name());
@@ -260,7 +260,7 @@ DirectoryIterator FileSystem::directoryIterator(const char* path) {
 
   if(strcmp(path, "/") == 0) return openRootDirectory().iterator("/");
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return DirectoryIterator();
 
   dir = dir.openDirectory(ps.name());
@@ -275,16 +275,16 @@ DirectoryIterator FileSystem::directoryIterator(const char* path) {
 
 bool FileSystem::fileExist(const char* path) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
-  return dir.fileExists(ps.name());
+  return dir.fileExist(ps.name());
 
 }
 
 File FileSystem::openFile(const char* path, FileOpenMode mode) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return File();
 
   return dir.openFile(ps.name(), mode);
@@ -293,7 +293,7 @@ File FileSystem::openFile(const char* path, FileOpenMode mode) {
 
 bool FileSystem::renameDirectory(const char* path, const char* name) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
   return dir.renameDirectory(ps.name(), name);
@@ -302,7 +302,7 @@ bool FileSystem::renameDirectory(const char* path, const char* name) {
 
 bool FileSystem::deleteDirectory(const char* path) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
   return dir.deleteDirectory(ps.name());
@@ -311,7 +311,7 @@ bool FileSystem::deleteDirectory(const char* path) {
 
 bool FileSystem::renameFile(const char* path, const char* name) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
   return dir.renameFile(ps.name(), name);
@@ -320,7 +320,7 @@ bool FileSystem::renameFile(const char* path, const char* name) {
 
 bool FileSystem::deleteFile(const char* path) {
 
-  Directory dir = locateParentDirectoryFromPath(path);
+  Directory dir = locateParentDirectory(path);
   if(!dir.isValid()) return false;
 
   return dir.deleteFile(ps.name());
@@ -342,41 +342,10 @@ int FileSystem::freeBlocks() {
 
 FileSystem::~FileSystem() {
   if(memory == NULL) return;
-  printc("Destroying memory\n", COLOR_RED);
   delete[] memory;
 }
 
-bool FileSystem::initPathSeparator(const char* path) {
-
-  bool ok = ps.set(path);
-  if(!ok) {
-    printfc("Invalid path %s\n", COLOR_RED, path);
-    return false;
-  }
-
-  return true;
-
-}
-
-Directory FileSystem::locateParentDirectory() {
-
-  Directory dir = openRootDirectory();
-
-  while(ps.hasNext()) {
-    char* n = ps.next();
-    Directory child = dir.openDirectory(n);
-    if(child.isValid()) {
-       dir = child;
-    } else {
-      return Directory();
-    }
-  }
-
-  return dir;
-
-}
-
-Directory FileSystem::locateParentDirectoryFromPath(const char* path) {
+Directory FileSystem::locateParentDirectory(const char* path) {
 
   bool ok = ps.set(path);
   if(!ok) {
@@ -491,18 +460,27 @@ bool Directory::isValid() {
   return fs != NULL;
 }
 
-bool Directory::fileExists(const char* name) {
+bool Directory::fileExist(const char* name) {
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
   return getFileInfo(name, 'F', NULL, NULL) != NULL;
 }
 
 File Directory::openFile(const char* name, FileOpenMode mode) {
+
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return File();
+  }
 
   FileInfo* fileInfo = getFileInfo(name, 'F', NULL, NULL);
 
   if(fileInfo == NULL) {
 
     if(mode == READ) {
-      printfc("Cannot open file %s because it does not exists\n", COLOR_RED, name);
+      printfc("Cannot open file %s because it does not exist\n", COLOR_RED, name);
       return File();
     }
 
@@ -521,15 +499,24 @@ File Directory::openFile(const char* name, FileOpenMode mode) {
 
 }
 
-bool Directory::directoryExists(const char* name) {
+bool Directory::directoryExist(const char* name) {
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
   return getFileInfo(name, 'D', NULL, NULL) != NULL;
 }
 
 bool Directory::createDirectory(const char* name) {
 
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
+
   FileInfo* fileInfo = getFileInfo(name, 'D', NULL, NULL);
   if(fileInfo != NULL) {
-    printfc("Cannot create directory %s because it already exists\n", COLOR_RED, name);
+    printfc("Cannot create directory %s because it already exist\n", COLOR_RED, name);
     return false;
   }
 
@@ -553,9 +540,14 @@ bool Directory::createDirectory(const char* name) {
 
 Directory Directory::openDirectory(const char* name) {
 
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return Directory();
+  }
+
   FileInfo* fileInfo = getFileInfo(name, 'D', NULL, NULL);
   if(fileInfo == NULL) {
-    printfc("Cannot open directory %s because it does not exists\n", COLOR_RED, name);
+    printfc("Cannot open directory %s because it does not exist\n", COLOR_RED, name);
     return Directory();
   }
 
@@ -568,6 +560,11 @@ DirectoryIterator Directory::iterator(const char* path) {
 }
 
 bool Directory::deleteFile(const char* name) {
+
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
 
   DirectoryBlock* block;
   int index;
@@ -593,6 +590,16 @@ bool Directory::deleteFile(const char* name) {
 
 bool Directory::renameFile(const char* name, const char* newName) {
 
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
+
+  if(strlen(newName) > 31) {
+    printfc("Cannot rename, maximum length of name is 31 character (%s)\n", COLOR_RED, newName);
+    return false;
+  }
+
   DirectoryBlock* block;
   int index;
   FileInfo* fileInfo = getFileInfo(name, 'F', &block, &index);
@@ -602,7 +609,7 @@ bool Directory::renameFile(const char* name, const char* newName) {
     return false;
   }
 
-  bool exist = fileExists(newName);
+  bool exist = fileExist(newName);
   if(exist) {
     printfc("Cannot rename file %s to %s because file with new name already exist\n", COLOR_RED, name, newName);
     return false;
@@ -610,6 +617,7 @@ bool Directory::renameFile(const char* name, const char* newName) {
 
   FileInfo temp = *fileInfo;
   strcpy(temp.fileName, newName);
+  temp.dateModified = getCurrentTime();
 
   removeFileInfo(block, index);
   fileInfo = addFileInfo(newName, 'F');
@@ -620,6 +628,11 @@ bool Directory::renameFile(const char* name, const char* newName) {
 }
 
 bool Directory::deleteDirectory(const char* name) {
+
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
 
   DirectoryBlock* block;
   int index;
@@ -645,6 +658,16 @@ bool Directory::deleteDirectory(const char* name) {
 
 bool Directory::renameDirectory(const char* name, const char* newName) {
 
+  if(strlen(name) > 31) {
+    printfc("Maximum length of name is 31 character (%s)\n", COLOR_RED, name);
+    return false;
+  }
+
+  if(strlen(newName) > 31) {
+    printfc("Cannot rename, maximum length of name is 31 character (%s)\n", COLOR_RED, newName);
+    return false;
+  }
+
   DirectoryBlock* block;
   int index;
   FileInfo* fileInfo = getFileInfo(name, 'D', &block, &index);
@@ -654,7 +677,7 @@ bool Directory::renameDirectory(const char* name, const char* newName) {
     return false;
   }
 
-  bool exist = directoryExists(newName);
+  bool exist = directoryExist(newName);
   if(exist) {
     printfc("Cannot rename directory %s to %s because directory with new name already exist\n", COLOR_RED, name, newName);
     return false;
@@ -678,7 +701,7 @@ int compareFileInfo(FileInfo* a, FileInfo* b) {
     return 1;
   }
 
-  return strcmp(a->fileName, b->fileName);
+  return strncmp(a->fileName, b->fileName, 31);
 
 }
 
@@ -689,7 +712,7 @@ int compareWithFileInfo(const char* name, char type, FileInfo* fileInfo) {
     return 1;
   }
 
-  return strcmp(name, fileInfo->fileName);
+  return strncmp(name, fileInfo->fileName, 31);
 
 }
 
@@ -862,8 +885,7 @@ void Directory::removeFileInfo(DirectoryBlock* block, int index) {
 #define FILE_BLOCK_CAPACITY FileBlock::capacity
 
 File::File() {
-  fs = NULL;
-  info = NULL;
+  _isOpen = false;
 }
 
 File::File(FileSystem* fs, FileInfo* info, FileOpenMode mode) {
@@ -886,31 +908,39 @@ File::File(FileSystem* fs, FileInfo* info, FileOpenMode mode) {
   cachedBlockStartPos = 0;
   cachedBlockEndPos = FILE_BLOCK_CAPACITY - 1;
 
+  _isOpen = true;
+
 }
 
-bool File::isValid() {
-  return fs != NULL;
+bool File::isOpen() {
+  return _isOpen;
 }
 
 char* File::name() {
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
   return info->fileName;
 }
 
 int File::size() {
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
   return info->fileSize;
 }
 
 void File::setPosition(int pos) {
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
   if(pos < 0) pos = 0;
   else if(pos > info->fileSize) pos = info->fileSize;
   this->pos = pos;
 }
 
 int File::getPosition() {
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
   return pos;
 }
 
 void File::write(char* bytes, int len) {
+
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
 
   int written = 0;
   int remain = len;
@@ -933,6 +963,8 @@ void File::write(char* bytes, int len) {
 }
 
 int File::read(char* bytes, int len) {
+
+  if(!_isOpen) { printc("ERROR: File is closed\n", COLOR_RED); exit(1); }
 
   int maxAllowed = info->fileSize - pos;
   if(len > maxAllowed) len = maxAllowed;
@@ -961,6 +993,8 @@ int File::read(char* bytes, int len) {
 
 void File::close() {
 
+  if(!_isOpen) return;
+
   if(mode == WRITE || mode == APPEND) {
 
     int blockPos;
@@ -984,16 +1018,19 @@ void File::close() {
 
     info->lastBlock = fs->blockIndex(block);
     info->fileSize = pos;
+    info->dateModified = getCurrentTime();
 
   }
+
+  _isOpen = false;
 
 }
 
 FileBlock* File::blockAt(int pos, int* blockPos) {
 
   FileBlock* block = cachedFileBlock;
-  FileBlock* last = fs->getFileBlock(block->previousBlock);
-  
+  FileBlock* last = block != NULL ? fs->getFileBlock(block->previousBlock) : NULL;
+
   int blockStartPos = cachedBlockStartPos;
   int blockEndPos = cachedBlockEndPos;
 
@@ -1046,9 +1083,6 @@ FileBlock* File::blockAt(int pos, int* blockPos) {
       last = block;
       block = fs->getFileBlock(block->nextBlock);
 
-    }else{
-      printc("FATAL ERROR: HOW CAN THIS EVEN HAPPEN\n", COLOR_RED);
-      exit(1);
     }
 
   }
