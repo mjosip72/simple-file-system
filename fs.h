@@ -137,8 +137,8 @@ class FileSystem {
   void format();
 
   bool directoryExist(const char* path);
-  void createDirectory(const char* path);
-  bool parentDirectory(char* parentDir, const char* path);
+  bool createDirectory(const char* path);
+  bool parentDirectory(Path* parentDir, const char* path);
   DirectoryIterator directoryIterator(const char* path);
 
   bool fileExist(const char* path);
@@ -160,7 +160,7 @@ class FileSystem {
 
   bool initPathSeparator(const char* path);
   Directory locateParentDirectory();
-
+  Directory locateParentDirectoryFromPath(const char* path);
 
   Directory openRootDirectory();
 
@@ -191,11 +191,10 @@ class Directory {
   bool isValid();
 
   bool fileExists(const char* name);
-  void createFile(const char* name);
   File openFile(const char* name, FileOpenMode mode);
 
   bool directoryExists(const char* name);
-  void createDirectory(const char* name);
+  bool createDirectory(const char* name);
   Directory openDirectory(const char* name);
 
   DirectoryIterator iterator(const char* path);

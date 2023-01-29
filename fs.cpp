@@ -122,13 +122,6 @@ PathSeparator::~PathSeparator() {
 FileSystem::FileSystem() {
   capacity = 0;
   memory = NULL;
-  /*
-  printfc("directory block: %d\n", COLOR_YELLOW, sizeof(DirectoryBlock));
-  printfc("  files capacity: %d\n", COLOR_YELLOW, DirectoryBlock::capacity);
-  printfc("file info:  %d\n", COLOR_YELLOW, sizeof(FileInfo));
-  printfc("file block: %d\n", COLOR_YELLOW, sizeof(FileBlock));
-  printfc("  bytes: %d\n", COLOR_YELLOW, FileBlock::capacity);
-  */
 }
 
 void FileSystem::create(uint32_t capacity) {
@@ -190,14 +183,6 @@ void FileSystem::format() {
 
   rootDir->fileCount = 0;
 
-  /*
-  uint32_t unusedCapacity = capacity - headerSize - header->totalBlocks * BLOCK_SIZE;
-  printfc("  capacity: %d B  (%.1f MB)\n", COLOR_GREEN, capacity, (float)capacity / (float)(1024*1024));
-  printfc("  unused capacity: %d B (%.1f KB)\n", COLOR_GREEN, unusedCapacity, (float)unusedCapacity / (float)(1024));
-  printfc("  total blocks: %d\n", COLOR_GREEN, header->totalBlocks);
-  printfc("  used blocks: %d\n", COLOR_GREEN, header->usedBlocks);
-  */
-  
   for(int i = header->firstEmptyBlock; i < header->totalBlocks; i++) {
     
     EmptyBlock* block = getEmptyBlock(i);
@@ -225,52 +210,48 @@ void FileSystem::format() {
 
 bool FileSystem::directoryExist(const char* path) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.directoryExists(ps.name());
 
 }
 
-void FileSystem::createDirectory(const char* path) {
+bool FileSystem::createDirectory(const char* path) {
 
-  if(!initPathSeparator(path)) return;
-  Directory dir = locateParentDirectory();
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return;
-  }
-
-  dir.createDirectory(ps.name());
+  return dir.createDirectory(ps.name());
 
 }
 
-bool FileSystem::parentDirectory(char* parentDir, const char* path) {
+bool FileSystem::parentDirectory(Path* parentDir, const char* path) {
 
-  if(!initPathSeparator(path)) return false;
-
-  Directory dir = openRootDirectory();
-  parentDir[0] = 0;
-
-  while(ps.hasNext()) {
-    char* n = ps.next();
-    strcat(parentDir, "/");
-    strcat(parentDir, n);
-    Directory child = dir.openDirectory(n);
-    if(child.isValid()) {
-       dir = child;
-    } else {
-      return false;
-    }
+  bool ok = ps.set(path);
+  if(!ok) {
+    printfc("Invalid path %s\n", COLOR_RED, path);
+    return false;
   }
 
-  if(parentDir[0] == 0) strcpy(parentDir, "/");
+  Directory dir = openRootDirectory();
+
+  while(ps.hasNext()) {
+
+    char* n = ps.next();
+    parentDir->push(n);
+
+    Directory child = dir.openDirectory(n);
+
+    if(child.isValid()) {
+      dir = child;
+    } else {
+      printfc("Cannot find parent directory %s\n", COLOR_RED, path);
+      return false;
+    }
+
+  }
+
   return true;
 
 }
@@ -279,13 +260,8 @@ DirectoryIterator FileSystem::directoryIterator(const char* path) {
 
   if(strcmp(path, "/") == 0) return openRootDirectory().iterator("/");
 
-  if(!initPathSeparator(path)) return DirectoryIterator();
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return DirectoryIterator();
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return DirectoryIterator();
 
   dir = dir.openDirectory(ps.name());
   if(!dir.isValid()) {
@@ -299,13 +275,8 @@ DirectoryIterator FileSystem::directoryIterator(const char* path) {
 
 bool FileSystem::fileExist(const char* path) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.fileExists(ps.name());
 
@@ -313,13 +284,8 @@ bool FileSystem::fileExist(const char* path) {
 
 File FileSystem::openFile(const char* path, FileOpenMode mode) {
 
-  if(!initPathSeparator(path)) return File();
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return File();
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return File();
 
   return dir.openFile(ps.name(), mode);
 
@@ -327,13 +293,8 @@ File FileSystem::openFile(const char* path, FileOpenMode mode) {
 
 bool FileSystem::renameDirectory(const char* path, const char* name) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.renameDirectory(ps.name(), name);
 
@@ -341,13 +302,8 @@ bool FileSystem::renameDirectory(const char* path, const char* name) {
 
 bool FileSystem::deleteDirectory(const char* path) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.deleteDirectory(ps.name());
 
@@ -355,13 +311,8 @@ bool FileSystem::deleteDirectory(const char* path) {
 
 bool FileSystem::renameFile(const char* path, const char* name) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.renameFile(ps.name(), name);
 
@@ -369,13 +320,8 @@ bool FileSystem::renameFile(const char* path, const char* name) {
 
 bool FileSystem::deleteFile(const char* path) {
 
-  if(!initPathSeparator(path)) return false;
-  Directory dir = locateParentDirectory();
-  
-  if(!dir.isValid()) {
-    printfc("Cannot find parent directory %s\n", COLOR_RED, path);
-    return false;
-  }
+  Directory dir = locateParentDirectoryFromPath(path);
+  if(!dir.isValid()) return false;
 
   return dir.deleteFile(ps.name());
 
@@ -424,6 +370,34 @@ Directory FileSystem::locateParentDirectory() {
     } else {
       return Directory();
     }
+  }
+
+  return dir;
+
+}
+
+Directory FileSystem::locateParentDirectoryFromPath(const char* path) {
+
+  bool ok = ps.set(path);
+  if(!ok) {
+    printfc("Invalid path %s\n", COLOR_RED, path);
+    return Directory();
+  }
+
+  Directory dir = openRootDirectory();
+
+  while(ps.hasNext()) {
+
+    char* n = ps.next();
+    Directory child = dir.openDirectory(n);
+
+    if(child.isValid()) {
+      dir = child;
+    } else {
+      printfc("Cannot find parent directory %s\n", COLOR_RED, path);
+      return Directory();
+    }
+
   }
 
   return dir;
@@ -521,25 +495,6 @@ bool Directory::fileExists(const char* name) {
   return getFileInfo(name, 'F', NULL, NULL) != NULL;
 }
 
-void Directory::createFile(const char* name) {
-
-  FileInfo* fileInfo = getFileInfo(name, 'F', NULL, NULL);
-  if(fileInfo != NULL) {
-    printfc("Cannot create file %s because it already exists\n", COLOR_RED, name);
-    return;
-  }
-
-  fileInfo = addFileInfo(name, 'F');
-
-  fileInfo->fileSize = 0;
-  fileInfo->dateCreated = getCurrentTime();
-  fileInfo->dateModified = fileInfo->dateCreated;
-
-  fileInfo->firstBlock = -1;
-  fileInfo->lastBlock = -1;
-
-}
-
 File Directory::openFile(const char* name, FileOpenMode mode) {
 
   FileInfo* fileInfo = getFileInfo(name, 'F', NULL, NULL);
@@ -570,12 +525,12 @@ bool Directory::directoryExists(const char* name) {
   return getFileInfo(name, 'D', NULL, NULL) != NULL;
 }
 
-void Directory::createDirectory(const char* name) {
+bool Directory::createDirectory(const char* name) {
 
   FileInfo* fileInfo = getFileInfo(name, 'D', NULL, NULL);
   if(fileInfo != NULL) {
     printfc("Cannot create directory %s because it already exists\n", COLOR_RED, name);
-    return;
+    return false;
   }
 
   fileInfo = addFileInfo(name, 'D');
@@ -592,6 +547,7 @@ void Directory::createDirectory(const char* name) {
   fileInfo->dateModified = fileInfo->dateCreated;
 
   fileInfo->firstBlock = n;
+  return true;
 
 }
 

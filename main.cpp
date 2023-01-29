@@ -3,12 +3,81 @@
 #include <cstring>
 #include <fstream>
 #include "fs.h"
-#include "str.h"
 #include "printc.h"
 
 #define min(a, b) ( a < b ? a : b )
 #define max(a, b) ( a > b ? a : b )
 
+#define streq(a, b) (strcmp(a, b) == 0)
+
+class StringSplitter {
+
+  private:
+
+  char* input;
+  int inputCap;
+  char* p;
+  char x;
+
+  public:
+
+  StringSplitter() {
+    input = NULL;
+    inputCap = 0;
+    p = NULL;
+  }
+
+  void set(const char* str, char x = ' ') {
+      
+    int len = strlen(str);
+
+    if(input == NULL) {
+      inputCap = len + 1;
+      input = new char[inputCap];
+    }else{
+      if(len + 1 > inputCap) {
+        delete[] input;
+        inputCap = len + 1;
+        input = new char[inputCap];
+      }
+    }
+    
+    memcpy(input, str, len + 1);
+
+    p = input;
+    this->x = x;
+
+  }
+  
+  bool hasNext() {
+    return p != NULL;
+  }
+
+  char* next() {
+
+    char* t = strchr(p, x);
+    char* result = p;
+
+    if(t == NULL) {
+      p = NULL;
+    }else{
+      *t = 0;
+      p = t + 1;
+    }
+
+    return result;
+
+  }
+
+  char* all() {
+    return p;
+  }
+
+  ~StringSplitter() {
+    if(input != NULL) delete[] input;
+  }
+
+};
 
 class Input {
 
@@ -165,11 +234,11 @@ void openFile(FileSystem &fs, const char* path, const char* name) {
 
 int main() {
 
-  // g++ main.cpp fs.cpp str.cpp -o app -D USE_PRINTFC ; if($?) { ./app }
+  // g++ main.cpp fs.cpp -o app -D USE_PRINTFC ; if($?) { ./app }
 
   FileSystem fs;
 
-  bool ok = fs.load("ssd.fs");
+  bool ok = fs.load("storage.fs");
   if(!ok) fs.create(32 * 1024 * 1024);
 
   Input input;
@@ -430,7 +499,13 @@ int main() {
 
         fs.renameDirectory(path.string(), newName);
 
-      } else {}
+      } else if(streq(cmd, "pdir")) {
+
+        Path parent;
+        bool ok = fs.parentDirectory(&parent, currentPath.string());
+        if(ok) printfc("Parent dir: %s\n", COLOR_BLUE, parent.string());
+
+      }
 
     } catch (int x) {
       printc("Wrong usage of command\n", COLOR_RED);
@@ -438,7 +513,7 @@ int main() {
 
   }
 
-  fs.save("ssd.fs");
+  fs.save("storage.fs");
   return 0;
 
 }
