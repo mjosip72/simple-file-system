@@ -491,9 +491,7 @@ int main() {
         if(ok) printfc("Parent dir: %s\n", COLOR_BLUE, parent.string());
 
       } else if(streq(cmd, "danger_format")) {
-        
         fs.format();
-
       } else {
         printc("Unknown command\n", COLOR_YELLOW);
       }

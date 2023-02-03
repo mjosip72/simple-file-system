@@ -149,7 +149,6 @@ class FileSystem {
   bool renameFile(const char* path, const char* name);
   bool deleteFile(const char* path);
 
-
   int totalBlocks();
   int usedBlocks();
   int freeBlocks();
